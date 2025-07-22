@@ -1,5 +1,5 @@
 resource "aws_iam_role" "lambda_exec" {
-  name = "lambda_iam_role_cleanup"
+  name = "${var.lambda_function_name}-lambda-exec-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -21,23 +21,14 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
 }
 
 resource "aws_iam_role_policy" "iam_cleanup_policy" {
-  name = "IAMCleanupPolicy"
+  name = "${var.lambda_function_name}-lambda-ses-policy"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
       {
-        "Sid" : "EC2InstanceManagement",
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeInstances",
-          "ec2:DescribeInstanceStatus"
-        ],
-        "Resource" : "*"
-      },
-      {
-        "Sid" : "EBSVolumeOperations",
+        "Sid" : "EC2Volumes",
         "Effect" : "Allow",
         "Action" : [
           "ec2:DescribeVolumes",
@@ -47,18 +38,11 @@ resource "aws_iam_role_policy" "iam_cleanup_policy" {
         "Resource" : "*"
       },
       {
-        "Sid" : "TagOperations",
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeTags"
-        ],
-        "Resource" : "*"
-      },
-      {
         "Sid" : "SES",
         "Effect" : "Allow",
         "Action" : [
-          "ses:*"
+          "ses:SendEmail",
+          "ses:SendRawEmail"
         ],
         "Resource" : "*"
       }
