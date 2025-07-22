@@ -1,11 +1,10 @@
 import boto3
 import csv
 import os
-import mimetypes
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
+from library.send_email import send_email
 
+sender = os.environ.get('SES_SENDER')
+recipient = os.environ.get('SES_RECIPIENT')
 
 class ebs_unencrypted_volumes_analyzer:
 
@@ -27,18 +26,23 @@ class ebs_unencrypted_volumes_analyzer:
                 volume_state = volume['State']
                 volume_size = volume['Size']
                 vol_attachments = ''
-                iops = ''
+                iops = volume['Iops']
+                availability_zone = volume['AvailabilityZone']
                 if volume_state == 'in-use':
                     vol_attachments = volume['Attachments'][0]['InstanceId']
                 if encrypted is False:
                     self.unencrypted_volumes.append({
-                        'Region': region,
-                        'Volume ID': volume_id,
-                        'Encrypted': encrypted,
-                        'Type': volume_type,
-                        'Attached Instances': vol_attachments,
-                        'IOPS': iops,
-                        'Size': volume_size
+                      'Region': region,
+                      'Availability Zone': availability_zone,
+                      'Volume ID': volume_id,
+                      'Encrypted': encrypted,
+                      'Type': volume_type,
+                      'Attached Instances': vol_attachments,
+                      'IOPS': iops,
+                      'Size': volume_size,
+                      'Name': next((tag['Value'] for tag in volume.get('Tags', []) if tag['Key'] == 'Name'), ''),
+                      'Owner': next((tag['Value'] for tag in volume.get('Tags', []) if tag['Key'] == 'Owner'), ''),
+                      'Environment': next((tag['Value'] for tag in volume.get('Tags', []) if tag['Key'] == 'Environment'), '')
                     })
         self.csv()
         print("EBS: Unencrypted volumes analysis complete")
@@ -46,47 +50,23 @@ class ebs_unencrypted_volumes_analyzer:
 
     def csv(self):
         # Write CSV
-        csv_path = '/tmp/unencrypted_volumes.csv'
+        csv_path = '/tmp/ebs_unencrypted_volumes.csv'
         with open(csv_path, 'w', newline='') as csvfile:
-            fieldnames = ['Region', 'Volume ID', 'Encrypted',
-                          'Type', 'Attached Instances', 'IOPS', 'Size']
+            fieldnames = ['Region', 'Availability Zone', 'Volume ID', 'Encrypted',
+                          'Type', 'Attached Instances', 'IOPS', 'Size', 'Name', 'Owner', 'Environment']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for volume in self.unencrypted_volumes:
                 writer.writerow(volume)
         
-        self.send_email(csv_path)
-    
-    def send_email(self, attachment_path='/tmp/unencrypted_volumes.csv'):
-        ses = boto3.client('ses')
-        sender = 'shoaibmm7@gmail.com'
-        recipient = 'shoaibmm7@gmail.com'
-        subject = 'Unencrypted EBS Volumes Report'
-        body_text = 'Please see the attached file for a list of unencrypted EBS volumes.'
+        # self.send_email(csv_path)
+        send_email(
+          sender=sender,
+          recipient=recipient,
+          subject='Unencrypted EBS Volumes Report',
+          body_text='Please see the attached file for a list of unencrypted EBS volumes.',
+          attachment_path=csv_path
+      )
 
-        # Create the root message
-        msg = MIMEMultipart()
-        msg['Subject'] = subject
-        msg['From'] = sender
-        msg['To'] = recipient
-
-        # Attach the body
-        body = MIMEText(body_text, 'plain')
-        msg.attach(body)
-
-        # Attach the CSV file
-        with open(attachment_path, 'rb') as file:
-            part = MIMEApplication(file.read())
-            part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
-            msg.attach(part)
-
-        # Send email
-        response = ses.send_raw_email(
-            Source=sender,
-            Destinations=[recipient],
-            RawMessage={'Data': msg.as_string()}
-        )
-
-        print("Email sent! Message ID:", response['MessageId'])
 
         
