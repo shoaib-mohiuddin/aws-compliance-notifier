@@ -45,6 +45,14 @@ resource "aws_iam_role_policy" "iam_cleanup_policy" {
           "ses:SendRawEmail"
         ],
         "Resource" : "*"
+      },
+      {
+        "Sid" : "STS",
+        "Effect" : "Allow",
+        "Action" : [
+          "sts:GetCallerIdentity"
+        ],
+        "Resource" : "*"
       }
     ]
   })

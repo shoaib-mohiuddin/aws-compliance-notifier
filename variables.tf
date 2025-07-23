@@ -1,5 +1,5 @@
 variable "lambda_function_name" {
   type        = string
-  default     = "ebs_volume_audit"
+  default     = "ebs-compliance-notifier"
   description = "Name of the Lambda function"
 }

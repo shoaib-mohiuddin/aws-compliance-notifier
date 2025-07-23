@@ -1,8 +1,4 @@
-data "aws_ses_email_identity" "ses1" {
-  email = "shoaib.mohiuddin@cloudreach.com"
-}
-
-data "aws_ses_email_identity" "ses2" {
+data "aws_ses_email_identity" "ses" {
   email = "shoaibmm7@gmail.com"
 }
 
@@ -22,13 +18,13 @@ resource "aws_lambda_function" "audit_lambda" {
 
   source_code_hash = filebase64sha256(data.archive_file.python_script_file.output_path)
 
-  runtime = "python3.11"
-  timeout = 10
+  runtime = "python3.12"
+  timeout = 900
 
   environment {
     variables = {
-      SES_SENDER = data.aws_ses_email_identity.ses1.email
-      SES_RECIPIENT  = data.aws_ses_email_identity.ses2.email
+      EMAIL_FROM_ADDRESS       = data.aws_ses_email_identity.ses.email
+      DEFAULT_EMAIL_RECIPIENTS = jsonencode([data.aws_ses_email_identity.ses.email, "shoaib.mohiuddin@cloudreach.com"])
     }
   }
 
