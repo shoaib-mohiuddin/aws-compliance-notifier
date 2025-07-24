@@ -21,7 +21,8 @@ These should be passed to the Lambda function:
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
-No requirements.
+Terraform
+Python3.11
 
 ## Providers
 
