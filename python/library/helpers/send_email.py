@@ -1,10 +1,18 @@
+"""
+This module provides a function to send emails using AWS SES.
+It allows sending an email with a subject, body text, and an attachment.
+"""
 import os
-import boto3
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+import boto3
 
 def send_email(sender, recipients, subject, body_text, attachment_path):
+    """
+    Sends an email with the specified subject and body text,
+    and attaches a file from the given attachment path.
+    """
     ses = boto3.client('ses')
 
     if isinstance(recipients, str):

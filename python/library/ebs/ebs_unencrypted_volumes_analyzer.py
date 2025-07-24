@@ -1,20 +1,35 @@
+"""
+EBS Encryption Analyzer
+
+This module checks for unencrypted EBS volumes. It generates 
+a CSV report and sends it via SES to designated recipients.
+"""
 import os
 import json
 import csv
 import boto3
 from library.helpers.send_email import send_email
 
-
 sender = os.environ.get('EMAIL_FROM_ADDRESS')
 recipients = json.loads(os.environ.get('DEFAULT_EMAIL_RECIPIENTS', '[]'))
 
-class ebs_unencrypted_volumes_analyzer:
+class EBSUnencryptedVolumesAnalyzer:
+    """
+    Analyzes AWS accounts and regions for EBS volumes that are not encrypted.
+    Collects data and sends a CSV report via SES.
+    """
 
     def __init__(self, account_id):
         self.account_id = account_id
         self.unencrypted_volumes = []
 
     def analyze(self, region_list):
+        """
+        Identifies unencrypted EBS volumes across the specified regions.
+
+        Args:
+            region_list (List[str]): A list of AWS regions to scan.
+        """
         print("EBS: Analyzing Unecrypted volumes...")
 
         # Loop through Regions
@@ -59,8 +74,11 @@ class ebs_unencrypted_volumes_analyzer:
         self.csv()
 
     def csv(self):
+        """
+        Generates a CSV report of unencrypted EBS volumes and sends it via email.
+        """
         csv_path = f'/tmp/ebs-unencrypted-volumes-{self.account_id}.csv'
-        with open(csv_path, 'w', newline='') as csvfile:
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Region', 'Availability Zone', 'Volume ID', 'Encrypted',
                           'Type', 'Attached Instances', 'IOPS', 'Size',
                           'Name', 'Owner', 'Environment']

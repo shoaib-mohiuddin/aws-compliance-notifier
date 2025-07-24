@@ -1,3 +1,9 @@
+"""
+EBS GP2 Analyzer
+
+This module checks for EBS volumes that are gp2 type. It generates 
+a CSV report and sends it via SES to designated recipients.
+"""
 import os
 import json
 import csv
@@ -7,13 +13,22 @@ from library.helpers.send_email import send_email
 sender = os.environ.get('EMAIL_FROM_ADDRESS')
 recipients = json.loads(os.environ.get('DEFAULT_EMAIL_RECIPIENTS', '[]'))
 
-class ebs_gp2_analyzer:
+class EBSGP2Analyzer:
+    """
+    Identifies EBS volumes still using gp2 and generates reports.
+    """
 
     def __init__(self, account_id):
         self.account_id = account_id
         self.gp2_volumes = []
 
     def analyze(self, region_list):
+        """
+        Identifies EBS volumes that are gp2 type across the specified regions.
+
+        Args:
+            region_list (List[str]): A list of AWS regions to scan.
+        """
         print("EBS: Analyzing GP2 volumes...")
 
         # Loop through Regions
@@ -58,8 +73,11 @@ class ebs_gp2_analyzer:
         self.csv()
 
     def csv(self):
+        """
+        Generates a CSV report of gp2 EBS volumes and sends it via email.
+        """
         csv_path = f'/tmp/ebs-gp2-volumes-{self.account_id}.csv'
-        with open(csv_path, 'w', newline='') as csvfile:
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Region', 'Availability Zone', 'Volume ID', 'Type',
                           'Size', 'IOPS', 'Attached Instances',
                           'Name', 'Owner', 'Environment']

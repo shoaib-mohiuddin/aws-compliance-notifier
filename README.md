@@ -1,6 +1,42 @@
-# EBS-Compliance-Notifier
+# EBS Compliance Notifier
 
+An automated AWS Lambda-based solution to identify non-compliant Amazon EBS volumes across multiple regions. It performs two key audits:
 
+  - Unencrypted EBS Volumes
+  - EBS Volumes using gp2 storage type
+
+The Lambda function analyzes EBS volumes, generates CSV reports, and emails stakeholders with detailed findings, which helps align with best practices for security and cost optimization.
+
+**Note:** The AWS account must have a SES verified sender email
+
+## Project Structure
+.
+├── backend.tf
+├── iam_role.tf
+├── lambda.tf
+├── provider.tf
+├── python
+│   ├── __init__.py
+│   ├── ebs_compliance_notifier.py
+│   └── library
+│       ├── __init__.py
+│       ├── ebs
+│       │   ├── __init__.py
+│       │   ├── ebs_gp2_analyzer.py
+│       │   └── ebs_unencrypted_volumes_analyzer.py
+│       └── helpers
+│           ├── __init__.py
+│           └── send_email.py
+├── README.md
+└── variables.tf
+
+### Environment Variables
+
+These should be passed to the Lambda function:
+| Variable |	Description |
+| -------- | ------------ |
+| `EMAIL_FROM_ADDRESS` |	Verified email in SES to send reports |
+| `DEFAULT_EMAIL_RECIPIENTS` |	JSON list of recipient emails (e.g., ["email@example.com"]) |
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
