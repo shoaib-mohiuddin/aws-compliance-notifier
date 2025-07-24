@@ -10,7 +10,7 @@ The Lambda function analyzes EBS volumes, generates CSV reports, and emails stak
 **Note:** The AWS account must have a SES verified sender email
 
 ## Project Structure
-.
+`.
 ├── backend.tf
 ├── iam_role.tf
 ├── lambda.tf
@@ -28,7 +28,7 @@ The Lambda function analyzes EBS volumes, generates CSV reports, and emails stak
 │           ├── __init__.py
 │           └── send_email.py
 ├── README.md
-└── variables.tf
+└── variables.tf`
 
 ### Environment Variables
 
