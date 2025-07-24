@@ -9,26 +9,6 @@ The Lambda function analyzes EBS volumes, generates CSV reports, and emails stak
 
 **Note:** The AWS account must have a SES verified sender email
 
-## Project Structure
-`.
-├── backend.tf
-├── iam_role.tf
-├── lambda.tf
-├── provider.tf
-├── python
-│   ├── __init__.py
-│   ├── ebs_compliance_notifier.py
-│   └── library
-│       ├── __init__.py
-│       ├── ebs
-│       │   ├── __init__.py
-│       │   ├── ebs_gp2_analyzer.py
-│       │   └── ebs_unencrypted_volumes_analyzer.py
-│       └── helpers
-│           ├── __init__.py
-│           └── send_email.py
-├── README.md
-└── variables.tf`
 
 ### Environment Variables
 
