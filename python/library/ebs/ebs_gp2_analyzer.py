@@ -45,10 +45,10 @@ class EBSGP2Analyzer:
                 availability_zone = volume['AvailabilityZone']
                 vol_attachments = ''
                 iops = volume['Iops']
+                volume_tags = volume.get('Tags', [])
                 if volume_type == 'gp2':
                     if volume_state == 'in-use':
                         vol_attachments = volume['Attachments'][0]['InstanceId']
-                    iops = volume['Iops']
                     self.gp2_volumes.append({
                         'Region': region,
                         'Availability Zone': availability_zone,
@@ -57,12 +57,10 @@ class EBSGP2Analyzer:
                         'Attached Instances': vol_attachments,
                         'IOPS': iops,
                         'Size': volume_size,
-                        'Name': next((tag['Value'] for tag in volume.get('Tags', []) 
-                                      if tag['Key'] == 'Name'), ''),
-                        'Owner': next((tag['Value'] for tag in volume.get('Tags', []) 
-                                       if tag['Key'] == 'Owner'), ''),
-                        'Environment': next((tag['Value'] for tag in volume.get('Tags', []) 
-                                             if tag['Key'] == 'Environment'), '')
+                        # Define which tags to include in the report - e.g, Name, Owner, Environment
+                        'Name': self.get_tag_value(volume_tags, 'Name'),
+                        'Owner': self.get_tag_value(volume_tags, 'Owner'),
+                        'Environment': self.get_tag_value(volume_tags, 'Environment')
                     })
         print("EBS: GP2 volumes analysis complete")
         print(self.gp2_volumes)
@@ -72,6 +70,12 @@ class EBSGP2Analyzer:
         print("EBS: GP2 volumes found, generating report...")
         self.csv()
 
+    def get_tag_value(self, tags, key):
+        """
+        Retrieves the value of a specific tag key from the volume tags.
+        """
+        return next((tag['Value'] for tag in tags if tag['Key'] == key), '')
+
     def csv(self):
         """
         Generates a CSV report of gp2 EBS volumes and sends it via email.
@@ -80,7 +84,7 @@ class EBSGP2Analyzer:
         with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Region', 'Availability Zone', 'Volume ID', 'Type',
                           'Size', 'IOPS', 'Attached Instances',
-                          'Name', 'Owner', 'Environment']
+                          'Name', 'Owner', 'Environment'] #<-- Define which tags to include in the report
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for volume in self.gp2_volumes:
@@ -93,7 +97,7 @@ class EBSGP2Analyzer:
             body_text=f"""
             Hi there,
 
-            Our latest audit has found that your AWS account {self.account_id} is using gp2 EBS volumes, which are now considered legacy storage types.
+            Our latest audit has found that the AWS account {self.account_id} is using gp2 EBS volume storage types.
 
             AWS recommends migrating to gp3 volumes to benefit from:
             

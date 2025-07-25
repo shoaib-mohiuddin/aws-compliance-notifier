@@ -13,7 +13,7 @@ def lambda_handler(event, context):
     Entry point for the Lambda function.
     It initializes the analyzers for unencrypted and gp2 EBS volumes.
     """
-    print(event, '\n', context)
+    # Define the regions to scan. Include all regions as needed.
     regions_list = ['eu-west-1', 'ap-northeast-3']
 
     sts = boto3.client('sts')

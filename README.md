@@ -21,8 +21,7 @@ These should be passed to the Lambda function:
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
-- Terraform
-- Python3.11
+No requirements.
 
 ## Providers
 
@@ -53,7 +52,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_lambda_function_name"></a> [lambda\_function\_name](#input\_lambda\_function\_name) | Name of the Lambda function | `string` | `"ebs-compliance-notifier"` | no |
+| <a name="input_lambda_function_name"></a> [lambda\_function\_name](#input\_lambda\_function\_name) | Name of the Lambda function | `string` | `"ebs_compliance_notifier"` | no |
 
 ## Outputs
 

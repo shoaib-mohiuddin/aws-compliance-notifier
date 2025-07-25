@@ -1,5 +1,5 @@
 data "aws_ses_email_identity" "ses" {
-  email = "shoaibmm7@gmail.com"
+  email = "shoaibmm.mohiuddin@cloudreach.com" # <-- Replace with a SES verified email address
 }
 
 data "archive_file" "python_script_file" {
@@ -9,8 +9,6 @@ data "archive_file" "python_script_file" {
 }
 
 resource "aws_lambda_function" "audit_lambda" {
-  # If the file is not in the current working directory you will need to include a 
-  # path.module in the filename.
   filename      = data.archive_file.python_script_file.output_path
   function_name = var.lambda_function_name
   role          = aws_iam_role.lambda_exec.arn
@@ -23,8 +21,8 @@ resource "aws_lambda_function" "audit_lambda" {
 
   environment {
     variables = {
-      EMAIL_FROM_ADDRESS       = data.aws_ses_email_identity.ses.email
-      DEFAULT_EMAIL_RECIPIENTS = jsonencode([data.aws_ses_email_identity.ses.email, "shoaib.mohiuddin@cloudreach.com"])
+      EMAIL_FROM_ADDRESS       = data.aws_ses_email_identity.ses.email # <-- SES verified email address
+      DEFAULT_EMAIL_RECIPIENTS = jsonencode(var.email_recipients) # <-- Add additional email addresses as needed
     }
   }
 
@@ -42,7 +40,7 @@ resource "aws_cloudwatch_event_rule" "lambda_event_rule" {
   name        = "${var.lambda_function_name}_event_rule"
   description = "Trigger for Lambda function to audit EBS volumes"
 
-  schedule_expression = "cron(0 12 * * ? *)" # Runs every day at 12:00 UTC
+  schedule_expression = "cron(0 12 * * ? *)" # <-- Define the schedule here, e.g., daily at 12:00 UTC
   state               = "ENABLED"
 }
 
