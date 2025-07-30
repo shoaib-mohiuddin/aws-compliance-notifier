@@ -39,6 +39,7 @@ terraform.rc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -198,5 +199,6 @@ override.tf.json
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
 
+.DS_Store
 # Ignore all zip files
 *.zip
