@@ -21,38 +21,32 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
 }
 
 resource "aws_iam_role_policy" "iam_cleanup_policy" {
-  name = "${var.lambda_function_name}-lambda-ses-policy"
+  name = "${var.lambda_function_name}-lambda-inline"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
       {
-        "Sid" : "EC2Volumes",
+        "Sid" : "EC2VolumesAndSecurityGroups",
         "Effect" : "Allow",
         "Action" : [
           "ec2:DescribeVolumes",
           "ec2:DescribeVolumeStatus",
-          "ec2:DescribeVolumeAttribute"
+          "ec2:DescribeVolumeAttribute",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeInstances"
         ],
         "Resource" : "*"
       },
       {
-        "Sid" : "SES",
+        "Sid" : "SESSendEmail",
         "Effect" : "Allow",
         "Action" : [
           "ses:SendEmail",
           "ses:SendRawEmail"
         ],
-        "Resource" : "*"
-      },
-      {
-        "Sid" : "STS",
-        "Effect" : "Allow",
-        "Action" : [
-          "sts:GetCallerIdentity"
-        ],
-        "Resource" : "*"
+        "Resource" : "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/${data.aws_ses_email_identity.ses.id}" # <-- SES verified email address
       }
     ]
   })

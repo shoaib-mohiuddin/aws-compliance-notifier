@@ -1,5 +1,6 @@
+data "aws_caller_identity" "current" {}
 data "aws_ses_email_identity" "ses" {
-  email = "shoaibmm.mohiuddin@cloudreach.com" # <-- Replace with a SES verified email address
+  email = "shoaibmm7@gmail.com" # <-- Replace with a SES verified email address
 }
 
 data "archive_file" "python_script_file" {
@@ -21,8 +22,8 @@ resource "aws_lambda_function" "audit_lambda" {
 
   environment {
     variables = {
-      EMAIL_FROM_ADDRESS       = data.aws_ses_email_identity.ses.email # <-- SES verified email address
-      DEFAULT_EMAIL_RECIPIENTS = jsonencode(var.email_recipients) # <-- Add additional email addresses as needed
+      EMAIL_FROM = data.aws_ses_email_identity.ses.email # <-- SES verified email address
+      EMAIL_TO   = jsonencode(var.email_recipients)      # <-- Add additional email addresses as needed
     }
   }
 
@@ -47,5 +48,11 @@ resource "aws_cloudwatch_event_rule" "lambda_event_rule" {
 resource "aws_cloudwatch_event_target" "lambda_target" {
   rule = aws_cloudwatch_event_rule.lambda_event_rule.name
   arn  = aws_lambda_function.audit_lambda.arn
+
+  input = jsonencode({
+    "account_id"       = data.aws_caller_identity.current.account_id,      # <-- Replace with your AWS account ID
+    "regions"          = ["${var.region}", "ap-northeast-3"],              # <-- Specify the region to analyze
+    "modules_in_scope" = ["ebs_gp2", "ebs_unencrypted", "security_groups"] # <-- Specify the modules to analyze
+  })
 
 }
