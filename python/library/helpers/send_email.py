@@ -2,6 +2,7 @@
 This module provides a function to send emails using AWS SES.
 It allows sending an email with a subject, body text, and an attachment.
 """
+
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -33,6 +34,9 @@ def send_email(sender, recipients, subject, body_text, attachment_path):
         msg.attach(part)
 
     try:
+        print("Sending email...")
+        print(f"From: {sender}")
+        print(f"To: {', '.join(recipients)}")
         response = ses.send_raw_email(
           Source=sender,
           Destinations=recipients,
