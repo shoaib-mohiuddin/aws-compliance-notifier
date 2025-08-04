@@ -52,7 +52,12 @@ resource "aws_cloudwatch_event_target" "lambda_target" {
   input = jsonencode({
     "account_id"       = data.aws_caller_identity.current.account_id,      # <-- Replace with your AWS account ID
     "regions"          = ["${var.region}", "ap-northeast-3"],              # <-- Specify the region to analyze
-    "modules_in_scope" = ["ebs_gp2", "ebs_unencrypted", "security_groups"] # <-- Specify the modules to analyze
+    "modules_in_scope" = ["ebs_gp2", "ebs_unencrypted", "security_groups"], # <-- Specify the modules to analyze
+    "exclusions" = {                                                       # <-- Specify exclusions if needed
+      "ebs_gp2_volume_ids" : ["vol-0734f6bd3d7493fab", "vol-0123456789abcdef0"],
+      "ebs_unencrypted_volume_ids" : ["vol-0abc123def456ghij", "vol-092c4ddee1d04b97d"],
+      "security_group_rule_ids" : ["sgr-02a51edd597a9d868", "sgr-0fa6a6b2a8541a804"]
+    }
   })
 
 }

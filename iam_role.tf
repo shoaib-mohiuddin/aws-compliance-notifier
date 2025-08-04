@@ -32,10 +32,12 @@ resource "aws_iam_role_policy" "iam_cleanup_policy" {
         "Effect" : "Allow",
         "Action" : [
           "ec2:DescribeVolumes",
-          "ec2:DescribeVolumeStatus",
-          "ec2:DescribeVolumeAttribute",
+          # "ec2:DescribeVolumeStatus",
+          # "ec2:DescribeVolumeAttribute",
           "ec2:DescribeSecurityGroups",
-          "ec2:DescribeInstances"
+          # "ec2:DescribeInstances",
+          "ec2:DescribeSecurityGroupRules"
+
         ],
         "Resource" : "*"
       },
