@@ -14,9 +14,11 @@ class EbsGP2Analyzer:
     Identifies EBS volumes still using gp2 and generates reports.
     """
 
-    def __init__(self, account_id):
+    def __init__(self, account_id, exclusions):
         self.account_id = account_id
+        self.excluded_volumes = exclusions.get('ebs_gp2_volume_ids', [])
         self.gp2_volumes = []
+        self.excluded_volumes_count = 0  # Track how many volumes were excluded
 
     def analyze(self, region_list):
         """
@@ -26,6 +28,7 @@ class EbsGP2Analyzer:
             region_list (List[str]): A list of AWS regions to scan.
         """
         print("EBS: Analyzing GP2 volumes...")
+        print(f"EBS: Excluding {len(self.excluded_volumes)} gp2 volumes from analysis")
 
         # Loop through Regions
         for region in region_list:
@@ -34,6 +37,10 @@ class EbsGP2Analyzer:
             volumes = ebs.describe_volumes()['Volumes']
 
             for volume in volumes:
+                if volume['VolumeId'] in self.excluded_volumes:
+                    self.excluded_volumes_count += 1
+                    print(f"Skipping excluded volume {volume['VolumeId']}")
+                    continue  # Skip excluded volumes
                 volume_id = volume['VolumeId']
                 volume_type = volume['VolumeType']
                 volume_state = volume['State']
@@ -56,6 +63,8 @@ class EbsGP2Analyzer:
                         'Size': volume_size,
                     })
         print("EBS: GP2 volumes analysis complete")
+        print(f"Found {len(self.gp2_volumes)} gp2 volumes across {len(region_list)} regions.")
+        print(f"Excluded {self.excluded_volumes_count} volumes from the report based on exclusion list.")
         print(self.gp2_volumes)
 
         if not self.gp2_volumes:
@@ -88,3 +97,17 @@ class EbsGP2Analyzer:
 
 
 
+# class EbsGP2Analyzer:
+#     def __init__(self, account_id, session):
+#         self.account_id = account_id
+#         self.session = session
+
+#     def analyze(self, regions):
+#         results = []
+#         for region in regions:
+#             ec2 = self.session.client("ec2", region_name=region)
+#             volumes = ec2.describe_volumes(
+#                 Filters=[{"Name": "volume-type", "Values": ["gp2"]}]
+#             )["Volumes"]
+#             # ... process and populate results
+#         return results

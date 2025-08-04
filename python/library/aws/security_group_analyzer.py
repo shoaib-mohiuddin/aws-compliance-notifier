@@ -15,10 +15,13 @@ class SecurityGroupAnalyzer:
     Collects data and sends a CSV report via SES.
     """
     
-    def __init__(self, account_id):
+    def __init__(self, account_id, exclusions):
         self.account_id = account_id
+        self.excluded_sg_rules = exclusions.get('security_group_rule_ids', [])
         self.default_sg_rules = []
         self.errors = []
+        self.sg_cache = {} # Cache for SG details
+        self.excluded_rules_count = 0  # Track how many rules were excluded
     
     def analyze(self, region_list):
         """
@@ -28,20 +31,20 @@ class SecurityGroupAnalyzer:
             region_list (List[str]): A list of AWS regions to scan.
         """
         print("SG: Analyzing for overly permissive rules...")
+        print(f"SG: Excluding {len(self.excluded_sg_rules)} security group rules from analysis")
         
         for region in region_list:
             try:
                 ec2 = boto3.client('ec2', region_name=region)
                 
-                # Use pagination to handle large numbers of security groups
-                paginator = ec2.get_paginator('describe_security_groups')
+                paginator = ec2.get_paginator('describe_security_group_rules')
                 page_iterator = paginator.paginate()
                 
                 for page in page_iterator:
-                    security_groups = page['SecurityGroups']
+                    sg_rules = page['SecurityGroupRules']
                     
-                    for sg in security_groups:
-                        self._analyze_security_group(sg, region)
+                    for rule in sg_rules:
+                        self._analyze_security_group_rule(rule, region, ec2)
                         
             except ClientError as e:
                 error_msg = f"Error scanning region {region}: {e}"
@@ -53,54 +56,42 @@ class SecurityGroupAnalyzer:
                 self.errors.append(error_msg)
         
         print(f"Analysis complete. Found {len(self.default_sg_rules)} risky rules across {len(region_list)} regions.")
+        print(f"Excluded {self.excluded_rules_count} rules from the report based on exclusion list.")
         
+        print(self.default_sg_rules)
+
         if not self.default_sg_rules:
-            print("No security group with unrestricted rules found.")
-            return
+            print("SG: No security group with unrestricted rules found.")
+            return          
         return {
             "csv_data": self.default_sg_rules,
             "filename": f"security-group-analysis-{self.account_id}.csv",
             "subject": f"Security Group Analysis Report for AWS Account - {self.account_id}",
-            "body_text": "Please find attached the security group analysis report."
+            "body_text": f"Please find attached the security group analysis report.\n\nSummary:\n- Total risky rules found: {len(self.default_sg_rules)}\n- Rules excluded from report: {self.excluded_rules_count}\n- Regions scanned: {len(region_list)}"
         }
     
-    def _analyze_security_group(self, sg, region):
+    def _analyze_security_group_rule(self, rule, region, ec2_client):
         """
-        Analyze a single security group for risky rules.
+        Analyze a single security group rule for risky open access.
         
         Args:
-            sg (dict): Security group data from AWS API
+            rule (dict): Security group rule data from AWS API
             region (str): AWS region name
+            ec2_client: EC2 client for additional API calls if needed
         """
-        sg_id = sg['GroupId']
-        sg_name = sg.get('GroupName', '')
-        vpc_id = sg.get('VpcId', 'EC2-Classic')
+        rule_id = rule.get('SecurityGroupRuleId')
         
-        # Check ingress rules
-        ingress_rules = sg.get('IpPermissions', [])
-        for rule in ingress_rules:
-            self._check_rule_for_open_access(rule, sg_id, sg_name, vpc_id, region, 'Ingress')
+        # Skip if rule is in exclusion list
+        if rule_id in self.excluded_sg_rules:
+            self.excluded_rules_count += 1
+            # print(f"SG: Skipping excluded rule {rule_id}")
+            return
         
-        # Check egress rules (optional - usually less concerning but worth noting)
-        egress_rules = sg.get('IpPermissionsEgress', [])
-        for rule in egress_rules:
-            self._check_rule_for_open_access(rule, sg_id, sg_name, vpc_id, region, 'Egress')
-    
-    def _check_rule_for_open_access(self, rule, sg_id, sg_name, vpc_id, region, direction):
-        """
-        Check if a rule has open access (0.0.0.0/0).
-        
-        Args:
-            rule (dict): Security group rule
-            sg_id (str): Security group ID
-            sg_name (str): Security group name
-            vpc_id (str): VPC ID
-            region (str): AWS region
-            direction (str): 'Ingress' or 'Egress'
-        """
-        protocol = rule.get('IpProtocol', 'N/A')
-        from_port = rule.get('FromPort', 'All')
-        to_port = rule.get('ToPort', 'All')
+        sg_id = rule.get('GroupId')
+        direction = 'Ingress' if rule.get('IsEgress') == False else 'Egress'
+        protocol = rule.get('IpProtocol')
+        from_port = rule.get('FromPort')
+        to_port = rule.get('ToPort')
         
         # Handle protocol-specific port ranges
         if protocol == '-1':
@@ -115,39 +106,66 @@ class SecurityGroupAnalyzer:
         else:
             port_range = f"{from_port}-{to_port}"
             protocol_name = protocol.upper()
+
+        for cidr, ip_version in [(rule.get('CidrIpv4'), 'IPv4'), (rule.get('CidrIpv6'), 'IPv6')]:
+            if cidr in ['0.0.0.0/0', '::/0']:
+                # self._record_rule_with_open_access(rule, sg_id, region, direction, protocol_name, port_range, cidr, ip_version)
+                
+                ### If not using _record_rule_with_open_access as a separte method, you can directly append to the list with below 
+                self.default_sg_rules.append({
+                    'Account ID': self.account_id,
+                    'Region': region,
+                    'Security Group ID': sg_id,
+                    'Direction': direction,
+                    'Protocol': protocol_name,
+                    'Port Range': port_range,
+                    'Source/Destination CIDR': cidr,
+                    'IP Version': ip_version,
+                    'Rule ID': rule.get('SecurityGroupRuleId', '')
+                })
+    
+    # def _record_rule_with_open_access(self, rule, sg_id, region, direction, protocol_name, port_range, cidr, ip_version):
+    #     """
+    #     Add a risky rule to the report data.
         
-        if 'IpRanges' in rule:
-            for ip_range in rule['IpRanges']:
-                cidr = ip_range.get('CidrIp', '')
-                if cidr == '0.0.0.0/0':
-                    self.default_sg_rules.append({
-                        'Account ID': self.account_id,
-                        'Region': region,
-                        'VPC ID': vpc_id,
-                        'Security Group ID': sg_id,
-                        'Security Group Name': sg_name,
-                        'Direction': direction,
-                        'Protocol': protocol_name,
-                        'Port Range': port_range,
-                        'Source/Destination CIDR': cidr,
-                        'IP Version': 'IPv4',
-                        'Description': ip_range.get('Description', '')
-                    })
+    #     Args:
+    #         rule (dict): Security group rule data
+    #         sg_id (str): Security group ID
+    #         region (str): AWS region
+    #         direction (str): 'Ingress' or 'Egress'
+    #         protocol_name (str): Protocol name
+    #         port_range (str): Port range
+    #         cidr (str): CIDR block
+    #         ip_version (str): 'IPv4' or 'IPv6'
+    #     """
         
-        if 'Ipv6Ranges' in rule:
-            for ipv6_range in rule['Ipv6Ranges']:
-                cidr = ipv6_range.get('CidrIpv6', '')
-                if cidr == '::/0':
-                    self.default_sg_rules.append({
-                        'Account ID': self.account_id,
-                        'Region': region,
-                        'VPC ID': vpc_id,
-                        'Security Group ID': sg_id,
-                        'Security Group Name': sg_name,
-                        'Direction': direction,
-                        'Protocol': protocol_name,
-                        'Port Range': port_range,
-                        'Source/Destination CIDR': cidr,
-                        'IP Version': 'IPv6',
-                        'Description': ipv6_range.get('Description', '')
-                    })
+    #     # Get SG details from cache or API
+    #     if sg_id not in self.sg_cache:
+    #         try:
+    #             ec2 = boto3.client('ec2', region_name=region)
+    #             sg_details = ec2.describe_security_groups(GroupIds=[sg_id])['SecurityGroups'][0]
+    #             self.sg_cache[sg_id] = {
+    #                 'name': sg_details.get('GroupName', ''),
+    #                 'vpc_id': sg_details.get('VpcId', 'EC2-Classic')
+    #             }
+    #         except Exception as e:
+    #             print(f"SG: Warning - Could not get security group details for {sg_id}: {e}")
+    #             self.sg_cache[sg_id] = {'name': '', 'vpc_id': 'Unknown'}
+
+    #     sg_name = self.sg_cache[sg_id]['name']
+    #     vpc_id = self.sg_cache[sg_id]['vpc_id']
+        
+    #     self.default_sg_rules.append({
+    #         'Account ID': self.account_id,
+    #         'Region': region,
+    #         'VPC ID': vpc_id,
+    #         'Security Group ID': sg_id,
+    #         'Security Group Name': sg_name,
+    #         'Direction': direction,
+    #         'Protocol': protocol_name,
+    #         'Port Range': port_range,
+    #         'Source/Destination CIDR': cidr,
+    #         'IP Version': ip_version,
+    #         'Description': rule.get('Description', ''),
+    #         'Rule ID': rule.get('SecurityGroupRuleId', '')
+    #     })

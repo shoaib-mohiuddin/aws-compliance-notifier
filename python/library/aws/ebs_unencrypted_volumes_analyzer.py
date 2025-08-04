@@ -15,9 +15,11 @@ class EbsUnencryptedVolumesAnalyzer:
     Collects data and sends a CSV report via SES.
     """
 
-    def __init__(self, account_id):
+    def __init__(self, account_id, exclusions):
         self.account_id = account_id
+        self.excluded_volumes = exclusions.get('ebs_unencrypted_volume_ids', [])
         self.unencrypted_volumes = []
+        self.excluded_volumes_count = 0  # Track how many volumes were excluded
 
     def analyze(self, region_list):
         """
@@ -27,6 +29,7 @@ class EbsUnencryptedVolumesAnalyzer:
             region_list (List[str]): A list of AWS regions to scan.
         """
         print("EBS: Analyzing Unecrypted volumes...")
+        print(f"EBS: Excluding {len(self.excluded_volumes)} unencrypted volumes from analysis")
 
         # Loop through Regions
         for region in region_list:
@@ -34,6 +37,10 @@ class EbsUnencryptedVolumesAnalyzer:
             volumes = ebs.describe_volumes()['Volumes']
 
             for volume in volumes:
+                if volume['VolumeId'] in self.excluded_volumes:
+                    self.excluded_volumes_count += 1
+                    print(f"Skipping excluded volume {volume['VolumeId']}")
+                    continue  # Skip if volume in exclusion list
                 volume_id = volume['VolumeId']
                 encrypted = volume['Encrypted']
                 volume_type = volume['VolumeType']
@@ -58,6 +65,8 @@ class EbsUnencryptedVolumesAnalyzer:
                         'Size': volume_size,
                     })
         print("EBS: Unencrypted volumes analysis complete")
+        print(f"Found {len(self.unencrypted_volumes)} unencrypted volumes across {len(region_list)} regions.")
+        print(f"Excluded {self.excluded_volumes_count} volumes from the report based on exclusion list.")
         print(self.unencrypted_volumes)
 
         if not self.unencrypted_volumes:

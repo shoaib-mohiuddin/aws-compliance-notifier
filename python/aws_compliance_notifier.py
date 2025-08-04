@@ -21,6 +21,11 @@ def lambda_handler(event, context):
     account_id = event.get("account_id")
     regions = event.get("regions", [])
     modules_in_scope = event.get("modules_in_scope", [])
+    exclusions = event.get("exclusions", {
+        "ebs_gp2_volume_ids": [],
+        "ebs_unencrypted_volume_ids": [],
+        "security_group_rule_ids": []
+    })
 
     sender = os.environ.get('EMAIL_FROM')
     recipients = json.loads(os.environ.get('EMAIL_TO', '[]'))
@@ -28,15 +33,15 @@ def lambda_handler(event, context):
     print(f"Running for account: {account_id}, Modules in Scope: {modules_in_scope}, regions: {regions}")
 
     if "ebs_unencrypted" in modules_in_scope:
-        ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id).analyze(regions)
+        ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id, exclusions).analyze(regions)
         write_csv_and_email(sender, recipients, ebs_unecrypted_volumes)
 
     if "ebs_gp2" in modules_in_scope:
-        ebs_gp2_volumes = EbsGP2Analyzer(account_id).analyze(regions)
+        ebs_gp2_volumes = EbsGP2Analyzer(account_id, exclusions).analyze(regions)
         write_csv_and_email(sender, recipients, ebs_gp2_volumes)
 
     if "security_groups" in modules_in_scope:
-        security_groups = SecurityGroupAnalyzer(account_id).analyze(regions)
+        security_groups = SecurityGroupAnalyzer(account_id, exclusions).analyze(regions)
         write_csv_and_email(sender, recipients, security_groups)
 
     return {
@@ -60,3 +65,11 @@ def lambda_handler(event, context):
 
 # ebs_gp2_volumes = EbsGP2Analyzer(account_id).analyze(regions)
 # write_csv_and_email(sender, recipients, ebs_gp2_volumes)
+
+
+
+# session = assume_role(account_id)
+
+# if "ebs_unencrypted" in modules_in_scope:
+#     ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id, session).analyze(regions)
+#     write_csv_and_email(sender, recipients, ebs_unecrypted_volumes)
