@@ -29,37 +29,44 @@ Create a cross-account role for the Lambda in the Customer account. Use the Clou
 ```
 aws cloudformation deploy \
   --template-file cnf-customer-iam-role-manual.yml \
-  --stack-name CloudreachAWSComplianceRole-CNFStack
+  --stack-name CloudreachAWSComplianceRole-CNFStack \
+  --region <CUSTOMER_REGION>
 ```
 
 #### Step 2: Create EventBridge Rule in cr-opsdev account
-1. Copy event_rule_mock_customer.tf to a new file in the repo root. Use naming convention:
+1. Copy `event_rule_mock_customer.tf` to a new file in the repo root. Use naming convention:
 ```
 event_rule_<CUSTOMER_NAME>_<ENV_NAME>.tf
 ```
+
 2. Customize the module input block:
 ```
 module "<CUSTOMER_NAME> {
-  source = "./module-eventbridge" # <-- DONOT CHANGE THIS
-  lambda_arn           = aws_lambda_function.audit_lambda.arn # <-- DONOT CHANGE THIS
-  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DONOT CHANGE THIS
+  source = "./module-eventbridge"                               # <-- DONOT CHANGE THIS
+  lambda_arn           = aws_lambda_function.audit_lambda.arn   # <-- DONOT CHANGE THIS
+  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn   # <-- DONOT CHANGE THIS
 
   event_rule_name      = "event_rule_<CUSTOMER_NAME>_<ENV_NAME>"
-  cron                 = enter cron e.g, "cron(0 12 * * ? *)"
+  cron                 = "cron(0 12 * * ? *)"                   # <-- Alter as required by the customer
   input_json = jsonencode({
     "account_id"       : "<CUSTOMER_ACCOUNT_ID>",
-    "regions"          : list of AWS regions where Customer resources are located e.g, ["eu-west-3", "ap-northeast-3"],
-    "modules_in_scope" : list of modules opted by customer e.g, ["ebs_gp2"] or ["ebs_gp2", "ebs_unencrypted", "security_groups"],
+    "regions"          : ["eu-west-1", "ap-northeast-3"],
+    "modules_in_scope" : ["ebs_gp2", "ebs_unencrypted"],
     "exclusions" : {
-      "ebs_gp2_volume_ids" : list of volume ids to exclude e.g, ["vol-xxxxx", "vol-yyyyy"],
-      "ebs_unencrypted_volume_ids" : list of volume ids to exclude e.g, ["vol-xxxxx", "vol-yyyyy"],
-      "security_group_rule_ids" : list of security group rule ids to exclude ["sgr-xxxxx", "sgr-yyyyy"]
+      "ebs_gp2_volume_ids" : ["vol-xxxxx", "vol-yyyyy"],
+      "ebs_unencrypted_volume_ids" : ["vol-xxxxx", "vol-yyyyy"],
+      "security_group_rule_ids" : ["sgr-xxxxx", "sgr-yyyyy"]
     }
   })
 }
 ```
-3. For initial setup, leave exclusions empty. These can be updated later based on customer feedback.
-4. Deploy the new rule to the cr-opsdev account
+3. The valid values in `modules_in_scope` are `ebs_gp2`, `ebs_unencrypted`, `security_groups`. 
+If the customer has opted for encryption audit alone, use `["ebs_unencrypted"]`
+If the customer has opted for all audits, use `["ebs_gp2", "ebs_unencrypted", "security_groups"]`
+
+4. For initial setup, leave `exclusions` list empty. These can be updated later based on customer feedback.
+
+5. Deploy the new rule to the cr-opsdev account
   ```
   cr-switchrole 830657588137
 
