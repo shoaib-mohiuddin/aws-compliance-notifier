@@ -13,7 +13,8 @@ provider "aws" {
   default_tags {
     tags = {
       "ManagedBy" = "Terraform"
-      "Owner"     = "Cloudreach"
+      "Owner"     = "ops-tier-3"
+      "Project"   = "Continuous Improvement"
     }
   }
 }

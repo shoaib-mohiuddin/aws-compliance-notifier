@@ -29,35 +29,35 @@ resource "aws_lambda_function" "audit_lambda" {
 
 }
 
-resource "aws_lambda_permission" "allow_cloudwatch_event" {
-  statement_id  = "AllowExecutionFromCloudWatch"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.audit_lambda.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.lambda_event_rule.arn
-}
+# resource "aws_lambda_permission" "allow_cloudwatch_event" {
+#   statement_id  = "AllowExecutionFromCloudWatch"
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.audit_lambda.function_name
+#   principal     = "events.amazonaws.com"
+#   source_arn    = aws_cloudwatch_event_rule.lambda_event_rule.arn
+# }
 
-resource "aws_cloudwatch_event_rule" "lambda_event_rule" {
-  name        = "${var.lambda_function_name}_event_rule"
-  description = "Trigger for Lambda function to audit EBS volumes"
+# resource "aws_cloudwatch_event_rule" "lambda_event_rule" {
+#   name        = "${var.lambda_function_name}_event_rule"
+#   description = "Trigger for Lambda function to audit EBS volumes"
 
-  schedule_expression = "cron(0 12 * * ? *)" # <-- Define the schedule here, e.g., daily at 12:00 UTC
-  state               = "ENABLED"
-}
+#   schedule_expression = "cron(0 12 * * ? *)" # <-- Define the schedule here, e.g., daily at 12:00 UTC
+#   state               = "ENABLED"
+# }
 
-resource "aws_cloudwatch_event_target" "lambda_target" {
-  rule = aws_cloudwatch_event_rule.lambda_event_rule.name
-  arn  = aws_lambda_function.audit_lambda.arn
+# resource "aws_cloudwatch_event_target" "lambda_target" {
+#   rule = aws_cloudwatch_event_rule.lambda_event_rule.name
+#   arn  = aws_lambda_function.audit_lambda.arn
 
-  input = jsonencode({
-    "account_id"       = data.aws_caller_identity.current.account_id,      # <-- Replace with your AWS account ID
-    "regions"          = ["${var.region}", "ap-northeast-3"],              # <-- Specify the region to analyze
-    "modules_in_scope" = ["ebs_gp2", "ebs_unencrypted", "security_groups"], # <-- Specify the modules to analyze
-    "exclusions" = {                                                       # <-- Specify exclusions if needed
-      "ebs_gp2_volume_ids" : ["vol-0734f6bd3d7493fab", "vol-0123456789abcdef0"],
-      "ebs_unencrypted_volume_ids" : ["vol-0abc123def456ghij", "vol-092c4ddee1d04b97d"],
-      "security_group_rule_ids" : ["sgr-02a51edd597a9d868", "sgr-0fa6a6b2a8541a804"]
-    }
-  })
+#   input = jsonencode({
+#     "account_id"       = data.aws_caller_identity.current.account_id,      # <-- Replace with your AWS account ID
+#     "regions"          = ["${var.region}", "ap-northeast-3"],              # <-- Specify the region to analyze
+#     "modules_in_scope" = ["ebs_gp2", "ebs_unencrypted", "security_groups"], # <-- Specify the modules to analyze
+#     "exclusions" = {                                                       # <-- Specify exclusions if needed
+#       "ebs_gp2_volume_ids" : ["vol-0734f6bd3d7493fab", "vol-0123456789abcdef0"],
+#       "ebs_unencrypted_volume_ids" : ["vol-0abc123def456ghij", "vol-092c4ddee1d04b97d"],
+#       "security_group_rule_ids" : ["sgr-02a51edd597a9d868", "sgr-0fa6a6b2a8541a804"]
+#     }
+#   })
 
-}
+# }

@@ -1,3 +1,4 @@
+# IAM Role for Lambda Function
 resource "aws_iam_role" "lambda_exec" {
   name = "${var.lambda_function_name}-lambda-exec-role"
 
@@ -20,27 +21,13 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy" "iam_cleanup_policy" {
+resource "aws_iam_role_policy" "lambda_inline" {
   name = "${var.lambda_function_name}-lambda-inline"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
-      {
-        "Sid" : "EC2VolumesAndSecurityGroups",
-        "Effect" : "Allow",
-        "Action" : [
-          "ec2:DescribeVolumes",
-          # "ec2:DescribeVolumeStatus",
-          # "ec2:DescribeVolumeAttribute",
-          "ec2:DescribeSecurityGroups",
-          # "ec2:DescribeInstances",
-          "ec2:DescribeSecurityGroupRules"
-
-        ],
-        "Resource" : "*"
-      },
       {
         "Sid" : "SESSendEmail",
         "Effect" : "Allow",
@@ -49,6 +36,49 @@ resource "aws_iam_role_policy" "iam_cleanup_policy" {
           "ses:SendRawEmail"
         ],
         "Resource" : "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/${data.aws_ses_email_identity.ses.id}" # <-- SES verified email address
+      },
+      {
+        "Sid" : "AssumeRoleInCustomerAccount",
+        "Effect" : "Allow",
+        "Action" : [
+          "sts:AssumeRole"
+        ],
+        "Resource" : "arn:aws:iam::*:role/CloudreachAWSComplianceRole"
+      }
+    ]
+  })
+}
+
+# IAM Role for Eventbridge
+resource "aws_iam_role" "iam_for_eventbridge" {
+  name = "aws-compliance-notifier-eventbridge-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "eventbridge_inline" {
+  name = "aws-compliance-notifier-eventbridge-inline"
+  role = aws_iam_role.iam_for_eventbridge.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${var.lambda_function_name}"
       }
     ]
   })
