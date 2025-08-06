@@ -14,8 +14,9 @@ class EbsGP2Analyzer:
     Identifies EBS volumes still using gp2 and generates reports.
     """
 
-    def __init__(self, account_id, exclusions):
+    def __init__(self, account_id, session, exclusions):
         self.account_id = account_id
+        self.session = session
         self.excluded_volumes = exclusions.get('ebs_gp2_volume_ids', [])
         self.gp2_volumes = []
         self.excluded_volumes_count = 0  # Track how many volumes were excluded
@@ -33,7 +34,7 @@ class EbsGP2Analyzer:
         # Loop through Regions
         for region in region_list:
 
-            ebs = boto3.client('ec2', region_name=region)
+            ebs = self.session.client('ec2', region_name=region)
             volumes = ebs.describe_volumes()['Volumes']
 
             for volume in volumes:
@@ -86,6 +87,11 @@ class EbsGP2Analyzer:
 
             Please refer to the attached report for details on affected volumes. We recommend planning a migration to gp3 to optimize performance and cost-efficiency.
 
+            Summary:
+            - Total gp2 volumes found: {len(self.gp2_volumes)}
+            - Excluded volumes from report: {self.excluded_volumes_count}
+            - Regions scanned: {len(region_list)}
+            
             Regards and thanks,
             Atos Managed Services
             """,

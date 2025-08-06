@@ -35,8 +35,8 @@ def send_email(sender, recipients, subject, body_text, attachment_path):
 
     try:
         print("Sending email...")
-        print(f"From: {sender}")
-        print(f"To: {', '.join(recipients)}")
+        # print(f"From: {sender}")
+        # print(f"To: {', '.join(recipients)}")
         response = ses.send_raw_email(
           Source=sender,
           Destinations=recipients,

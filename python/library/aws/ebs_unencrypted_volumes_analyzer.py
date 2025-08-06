@@ -15,8 +15,9 @@ class EbsUnencryptedVolumesAnalyzer:
     Collects data and sends a CSV report via SES.
     """
 
-    def __init__(self, account_id, exclusions):
+    def __init__(self, account_id, session, exclusions):
         self.account_id = account_id
+        self.session = session
         self.excluded_volumes = exclusions.get('ebs_unencrypted_volume_ids', [])
         self.unencrypted_volumes = []
         self.excluded_volumes_count = 0  # Track how many volumes were excluded
@@ -33,7 +34,7 @@ class EbsUnencryptedVolumesAnalyzer:
 
         # Loop through Regions
         for region in region_list:
-            ebs = boto3.client('ec2', region_name=region)
+            ebs = self.session.client('ec2', region_name=region)
             volumes = ebs.describe_volumes()['Volumes']
 
             for volume in volumes:
@@ -90,6 +91,11 @@ class EbsUnencryptedVolumesAnalyzer:
             
 
             Taking action ensures data confidentiality, strengthens cloud security posture, and aligns with compliance obligations.
+
+            Summary:
+            - Total unencrypted volumes found: {len(self.unencrypted_volumes)}
+            - Excluded volumes from report: {self.excluded_volumes_count}
+            - Regions scanned: {len(region_list)}
 
             Regards and thanks,
             Atos Managed Services

@@ -1,7 +1,19 @@
+"""
+This module provides a function to write CSV data to a file.
+"""
+
 import csv
 from library.helpers.send_email import send_email
 
+
 def write_csv_and_email(sender, recipients, module_output):
+    """
+    Writes the module output to a CSV file and invoke email module.
+    Args:
+        sender (str): Email address of the sender.
+        recipients (list): List of recipient email addresses.
+        module_output (dict): Output from the module containing CSV data and metadata.
+    """
     if not module_output:
         print("No data to email.")
         return

@@ -1,6 +1,11 @@
+"""
+This module provides a function to assume an IAM role in a specified AWS account.
+It returns a new boto3 session with temporary credentials for the assumed role.
+"""
+
 import boto3
-import os
 from botocore.exceptions import ClientError
+
 
 def assume_role(account_id, role_name="CloudreachAWSComplianceRole", session_name="CloudreachAWSComplianceRoleSession"):
     """

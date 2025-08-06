@@ -15,8 +15,9 @@ class SecurityGroupAnalyzer:
     Collects data and sends a CSV report via SES.
     """
     
-    def __init__(self, account_id, exclusions):
+    def __init__(self, account_id, session, exclusions):
         self.account_id = account_id
+        self.session = session
         self.excluded_sg_rules = exclusions.get('security_group_rule_ids', [])
         self.default_sg_rules = []
         self.errors = []
@@ -35,7 +36,7 @@ class SecurityGroupAnalyzer:
         
         for region in region_list:
             try:
-                ec2 = boto3.client('ec2', region_name=region)
+                ec2 = self.session.client('ec2', region_name=region)
                 
                 paginator = ec2.get_paginator('describe_security_group_rules')
                 page_iterator = paginator.paginate()
@@ -67,7 +68,23 @@ class SecurityGroupAnalyzer:
             "csv_data": self.default_sg_rules,
             "filename": f"security-group-analysis-{self.account_id}.csv",
             "subject": f"Security Group Analysis Report for AWS Account - {self.account_id}",
-            "body_text": f"Please find attached the security group analysis report.\n\nSummary:\n- Total risky rules found: {len(self.default_sg_rules)}\n- Rules excluded from report: {self.excluded_rules_count}\n- Regions scanned: {len(region_list)}"
+            "body_text": f"""
+            Hi there,
+
+            As part of our ongoing security compliance efforts, we have analyzed the security groups in your AWS account {self.account_id}.
+
+            The analysis has identified security groups with overly permissive rules that allow unrestricted access. Below is a summary of the findings:
+
+            - Total risky security group rules found: {len(self.default_sg_rules)}
+            - Excluded rules from report: {self.excluded_rules_count}
+            - Regions scanned: {len(region_list)}
+
+            Please refer to the attached report for details on affected security groups and rules. We recommend reviewing these rules and applying necessary restrictions to enhance the security posture of your AWS environment. 
+            If any rules are not required, consider removing them to minimize the attack surface. And if any unrestricted rules are necessary, let us know so we can update the exclusion list accordingly.
+
+            Regards and thanks,
+            Atos Managed Services
+            """
         }
     
     def _analyze_security_group_rule(self, rule, region, ec2_client):
