@@ -4,7 +4,7 @@ module "mock_customer" {
   eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DONOT CHANGE THIS
 
   event_rule_name = "event_rule-mock-customer_dev"
-  cron            = "cron(0 12 * * ? *)"
+  cron            = "cron(0 23 * * ? *)"
   input_json = jsonencode({
     "account_id" : "398649119307",                                          # <-- Replace with Customer AWS account ID
     "regions" : ["eu-west-3", "ap-northeast-3"],                            # <-- Specify the region to analyze
