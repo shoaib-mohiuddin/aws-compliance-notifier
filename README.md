@@ -68,8 +68,6 @@ If the customer has opted for all audits, use `["ebs_gp2", "ebs_unencrypted", "s
 
 5. Deploy the new rule to the cr-opsdev account
   ```
-  cr-switchrole 830657588137
-
   terraform init
   terraform apply
   ```
