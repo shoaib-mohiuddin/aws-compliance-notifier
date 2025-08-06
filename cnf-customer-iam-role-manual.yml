@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM role for AWS compliance Lambda cross-account access.
+
+Parameters:
+  StackName:
+    Type: String
+    Description: Name of the CloudFormation stack (used for tagging)
+    
+Resources:
+  CloudreachAWSComplianceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CloudreachAWSComplianceRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::166916347510:root
+            Action: sts:AssumeRole
+            Condition:
+              ArnLike:
+                aws:PrincipalArn: arn:aws:iam::166916347510:role/aws_compliance_notifier-lambda-exec-role
+              StringLike:
+                sts:RoleSessionName: CloudreachAWSComplianceRoleSession
+      Policies:
+        - PolicyName: CloudreachAWSCompliancePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: EC2VolumesAndSecurityGroups
+                Effect: Allow
+                Action:
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSecurityGroupRules
+                Resource: "*"
+      Tags:
+        - Key: ManagedBy
+          Value: !Ref StackName
+        - Key: Owner
+          Value: Cloudreach
