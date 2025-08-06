@@ -3,7 +3,7 @@ module "mock_customer" {
   lambda_arn           = aws_lambda_function.audit_lambda.arn # <-- DONOT CHANGE THIS
   eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DONOT CHANGE THIS
 
-  event_rule_name = "event_rule-mock-customer_dev"
+  event_rule_name = "event_rule_mock_customer_dev"
   cron            = "cron(0 23 * * ? *)"
   input_json = jsonencode({
     "account_id" : "398649119307",                                          # <-- Replace with Customer AWS account ID
