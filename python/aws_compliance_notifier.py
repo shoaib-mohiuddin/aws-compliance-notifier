@@ -10,7 +10,7 @@ from library.aws.ebs_unencrypted_volumes_analyzer import EbsUnencryptedVolumesAn
 from library.aws.ebs_gp2_analyzer import EbsGP2Analyzer
 from library.aws.security_group_analyzer import SecurityGroupAnalyzer
 from library.helpers.assume_role import assume_role
-from library.helpers.write_csv_and_email import write_csv_and_email
+from library.helpers.write_csv import write_csv
 
 
 def lambda_handler(event, context):
@@ -21,7 +21,7 @@ def lambda_handler(event, context):
 
     account_id = event.get("account_id")
     regions = event.get("regions", [])
-    modules_in_scope = event.get("modules_in_scope", [])
+    enabled_checks = event.get("enabled_checks", [])
     exclusions = event.get("exclusions", {
         "ebs_gp2_volume_ids": [],
         "ebs_unencrypted_volume_ids": [],
@@ -34,46 +34,21 @@ def lambda_handler(event, context):
     # Assume role in the target account
     session = assume_role(account_id)
 
-    print(f"Running for account: {account_id}, Modules in Scope: {modules_in_scope}, regions: {regions}")
+    print(f"Running for account: {account_id}, Compliance checks in Scope: {enabled_checks}, regions: {regions}")
 
-    if "ebs_unencrypted" in modules_in_scope:
+    if "ebs_unencrypted" in enabled_checks:
         ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id, session, exclusions).analyze(regions)
-        write_csv_and_email(sender, recipients, ebs_unecrypted_volumes)
+        write_csv(sender, recipients, ebs_unecrypted_volumes)
 
-    if "ebs_gp2" in modules_in_scope:
+    if "ebs_gp2" in enabled_checks:
         ebs_gp2_volumes = EbsGP2Analyzer(account_id, session, exclusions).analyze(regions)
-        write_csv_and_email(sender, recipients, ebs_gp2_volumes)
+        write_csv(sender, recipients, ebs_gp2_volumes)
 
-    if "security_groups" in modules_in_scope:
+    if "security_groups" in enabled_checks:
         security_groups = SecurityGroupAnalyzer(account_id, session, exclusions).analyze(regions)
-        write_csv_and_email(sender, recipients, security_groups)
+        write_csv(sender, recipients, security_groups)
 
     return {
         'statusCode': 200,
         'body': json.dumps('Compliance module execution complete.')
     }
-
-
-# sender = os.environ.get('EMAIL_FROM_ADDRESS')
-# recipients = json.loads(os.environ.get('DEFAULT_EMAIL_RECIPIENTS', '[]'))
-
-# regions = ['eu-west-1', 'ap-northeast-3']
-
-# sts = boto3.client('sts')
-# account_id = sts.get_caller_identity()['Account']
-# security_groups = SecurityGroupAnalyzer(account_id).analyze(regions)
-# write_csv_and_email(sender, recipients, security_groups)
-
-# ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id).analyze(regions)
-# write_csv_and_email(sender, recipients, ebs_unecrypted_volumes)
-
-# ebs_gp2_volumes = EbsGP2Analyzer(account_id).analyze(regions)
-# write_csv_and_email(sender, recipients, ebs_gp2_volumes)
-
-
-
-# session = assume_role(account_id)
-
-# if "ebs_unencrypted" in modules_in_scope:
-#     ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id, session).analyze(regions)
-#     write_csv_and_email(sender, recipients, ebs_unecrypted_volumes)

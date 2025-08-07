@@ -6,7 +6,7 @@ import csv
 from library.helpers.send_email import send_email
 
 
-def write_csv_and_email(sender, recipients, module_output):
+def write_csv(sender, recipients, module_output):
     """
     Writes the module output to a CSV file and invoke email module.
     Args:
