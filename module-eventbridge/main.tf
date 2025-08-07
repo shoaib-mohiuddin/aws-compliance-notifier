@@ -11,6 +11,11 @@ resource "aws_cloudwatch_event_target" "lambda_target" {
   arn  = "${var.lambda_arn}"
   role_arn = var.eventbridge_role_arn
 
-  input = jsonencode("${var.input_json}")
+  input = jsonencode({
+    account_id       = var.account_id,
+    regions          = var.regions,
+    enabled_checks   = local.enabled_checks,
+    exclusions       = local.exclusions
+  })
 
 }
