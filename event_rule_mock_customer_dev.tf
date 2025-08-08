@@ -1,15 +1,14 @@
 module "mock_customer" {
-  source               = "./module-eventbridge"               # <-- DONOT CHANGE THIS
-  lambda_arn           = aws_lambda_function.audit_lambda.arn # <-- DONOT CHANGE THIS
-  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DONOT CHANGE THIS
+  source               = "./module-eventbridge"               # <-- DO NOT CHANGE THIS
+  lambda_arn           = aws_lambda_function.audit_lambda.arn # <-- DO NOT CHANGE THIS
+  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DO NOT CHANGE THIS
 
   event_rule_name = "event_rule_mock_customer_dev"
-  cron            = "cron(00 12 * * ? *)"
+  cron            = "cron(00 12 * * ? *)"           # <-- Replace cron schedule 
   account_id      = "398649119307"                  # <-- Replace with Customer AWS account ID
   regions         = ["eu-west-3", "ap-northeast-3"] # <-- Specify the regions to analyze
 
-  # Enable the checks customers want to run
-  # Set to true to enable the check, false to disable it
+  # Enable the checks customers want to run, Set to true to enable the check, false to disable it
   enable_gp2_check        = true
   enable_encryption_check = true
   enable_sg_check         = true

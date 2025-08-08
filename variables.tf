@@ -12,4 +12,5 @@ variable "email_recipients" {
 variable "region" {
   type        = string
   description = "AWS region where the resources will be deployed"
+  default     = "eu-west-1"
 }
