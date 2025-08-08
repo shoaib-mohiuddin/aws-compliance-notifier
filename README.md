@@ -62,7 +62,12 @@ module "CUSTOMER_NAME" {
   exclude_sg_rules            = ["sgr-zzzzz", "sgr-zzzzz"] 
 }
 ```
-3. For initial setup, leave `exclusions` list empty. These can be updated later based on customer feedback.
+3. For initial setup, leave exclusions part empty. These can be updated later based on customer feedback.
+```
+  exclude_gp2_volumes         = [] 
+  exclude_unencrypted_volumes = [] 
+  exclude_sg_rules            = [] 
+```
 
 4. Deploy the new rule to the cr-opsdev account
   ```
