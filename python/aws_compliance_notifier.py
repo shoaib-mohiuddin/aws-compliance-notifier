@@ -28,9 +28,6 @@ def lambda_handler(event, context):
         "security_group_rule_ids": []
     })
 
-    sender = os.environ.get('EMAIL_FROM')
-    recipients = json.loads(os.environ.get('EMAIL_TO', '[]'))
-
     # Assume role in the target account
     session = assume_role(account_id)
 
@@ -38,15 +35,15 @@ def lambda_handler(event, context):
 
     if "ebs_unencrypted" in enabled_checks:
         ebs_unecrypted_volumes = EbsUnencryptedVolumesAnalyzer(account_id, session, exclusions).analyze(regions)
-        write_csv(sender, recipients, ebs_unecrypted_volumes)
+        write_csv(ebs_unecrypted_volumes)
 
     if "ebs_gp2" in enabled_checks:
         ebs_gp2_volumes = EbsGP2Analyzer(account_id, session, exclusions).analyze(regions)
-        write_csv(sender, recipients, ebs_gp2_volumes)
+        write_csv(ebs_gp2_volumes)
 
     if "security_groups" in enabled_checks:
         security_groups = SecurityGroupAnalyzer(account_id, session, exclusions).analyze(regions)
-        write_csv(sender, recipients, security_groups)
+        write_csv(security_groups)
 
     return {
         'statusCode': 200,

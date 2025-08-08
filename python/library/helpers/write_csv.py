@@ -3,10 +3,14 @@ This module provides a function to write CSV data to a file.
 """
 
 import csv
+import os
+import json
 from library.helpers.send_email import send_email
 
+sender = os.environ.get('EMAIL_FROM')
+recipients = json.loads(os.environ.get('EMAIL_TO', '[]'))
 
-def write_csv(sender, recipients, module_output):
+def write_csv(module_output):
     """
     Writes the module output to a CSV file and invoke email module.
     Args:

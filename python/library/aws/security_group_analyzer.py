@@ -32,7 +32,7 @@ class SecurityGroupAnalyzer:
             region_list (List[str]): A list of AWS regions to scan.
         """
         print("SG: Analyzing for overly permissive rules...")
-        print(f"SG: Excluding {len(self.excluded_sg_rules)} security group rules from analysis")
+        # print(f"SG: Excluding {len(self.excluded_sg_rules)} security group rules from analysis")
         
         for region in region_list:
             try:
@@ -56,10 +56,15 @@ class SecurityGroupAnalyzer:
                 print(error_msg)
                 self.errors.append(error_msg)
         
-        print(f"Analysis complete. Found {len(self.default_sg_rules)} risky rules across {len(region_list)} regions.")
-        print(f"Excluded {self.excluded_rules_count} rules from the report based on exclusion list.")
+        print(f"SG: Analysis complete. Found {len(self.default_sg_rules)} risky rules across {len(region_list)} regions.")
+        print(f"SG: Excluded {self.excluded_rules_count} rules from the report based on exclusion list.")
         
         print(self.default_sg_rules)
+        print(f"""SG Summary:
+            - Total risky security group rules found: {len(self.default_sg_rules)}
+            - Excluded rules from report: {self.excluded_rules_count}
+            - Regions scanned: {len(region_list)})
+        """)
 
         if not self.default_sg_rules:
             print("SG: No security group with unrestricted rules found.")
@@ -73,11 +78,7 @@ class SecurityGroupAnalyzer:
 
             As part of our ongoing security compliance efforts, we have analyzed the security groups in your AWS account {self.account_id}.
 
-            The analysis has identified security groups with overly permissive rules that allow unrestricted access. Below is a summary of the findings:
-
-            - Total risky security group rules found: {len(self.default_sg_rules)}
-            - Excluded rules from report: {self.excluded_rules_count}
-            - Regions scanned: {len(region_list)}
+            The analysis has identified security groups with overly permissive rules that allow unrestricted access.
 
             Please refer to the attached report for details on affected security groups and rules. We recommend reviewing these rules and applying necessary restrictions to enhance the security posture of your AWS environment. 
             If any rules are not required, consider removing them to minimize the attack surface. And if any unrestricted rules are necessary, let us know so we can update the exclusion list accordingly.

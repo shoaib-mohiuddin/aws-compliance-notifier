@@ -30,7 +30,7 @@ class EbsUnencryptedVolumesAnalyzer:
             region_list (List[str]): A list of AWS regions to scan.
         """
         print("EBS: Analyzing Unecrypted volumes...")
-        print(f"EBS: Excluding {len(self.excluded_volumes)} unencrypted volumes from analysis")
+        # print(f"EBS: Excluding {len(self.excluded_volumes)} unencrypted volumes from analysis")
 
         # Loop through Regions
         for region in region_list:
@@ -66,9 +66,15 @@ class EbsUnencryptedVolumesAnalyzer:
                         'Size': volume_size,
                     })
         print("EBS: Unencrypted volumes analysis complete")
-        print(f"Found {len(self.unencrypted_volumes)} unencrypted volumes across {len(region_list)} regions.")
-        print(f"Excluded {self.excluded_volumes_count} volumes from the report based on exclusion list.")
+        print(f"EBS: Found {len(self.unencrypted_volumes)} unencrypted volumes across {len(region_list)} regions.")
+        print(f"EBS: Excluded {self.excluded_volumes_count} volumes from the report based on exclusion list.")
+
         print(self.unencrypted_volumes)
+        print(f"""EBS Encryption Summary:
+            - Total unencrypted volumes found: {len(self.unencrypted_volumes)}
+            - Excluded volumes from report: {self.excluded_volumes_count}
+            - Regions scanned: {len(region_list)}
+        """)
 
         if not self.unencrypted_volumes:
             print("EBS: No unencrypted volumes found.")
@@ -91,11 +97,6 @@ class EbsUnencryptedVolumesAnalyzer:
             
 
             Taking action ensures data confidentiality, strengthens cloud security posture, and aligns with compliance obligations.
-
-            Summary:
-            - Total unencrypted volumes found: {len(self.unencrypted_volumes)}
-            - Excluded volumes from report: {self.excluded_volumes_count}
-            - Regions scanned: {len(region_list)}
 
             Regards and thanks,
             Atos Managed Services
