@@ -1,6 +1,6 @@
 # AWS Compliance Notifier
 
-A Lambda-based solution to identify non-compliant AWS resources across multiple regions. The Lambda function is hosted in cr-opsdev account (830657588137) and will be used to orchestrate the compliance run in the customer accounts.
+A Lambda-based solution to identify non-compliant AWS resources across multiple regions. The Lambda function will be hosted in cr-opsdev account (830657588137) and will be used to orchestrate the compliance run in the customer accounts.
 
 It performs following key audits:
 
@@ -10,19 +10,19 @@ It performs following key audits:
 
 The Lambda function assumes role in the customer account, analyzes above resources, generates CSV reports, and emails support@cloudreach.com with detailed findings, which helps align with best practices for security and cost optimization.
 
-**TODO:** Create a SES email identity for the support email address - this will be used as both sender and recipient.
+**TODO:** Create a SES email identity for the support email in cr-opsdev account - this will be used as both sender and recipient.
 
 ## How It Works
 
 1. Lambda sits in the cr-opsdev account.
-2. Each **customer account** must have a IAM role (`CloudreachAWSComplianceRole`) deployed via CloudFormation.
+2. Each **customer account** must have a IAM role (`CloudreachAWSComplianceRole`).
 3. An **EventBridge rule** in cr-opsdev to trigger the Lambda with customer account context.
 4. Lambda:
    - Assumes the customer's IAM role.
    - Runs compliance checks on selected modules (encryption, gp2, security groups, etc).
    - Sends an email report via Amazon SES.
 
-## Onboarding a New Customer 
+## Onboarding a Customer 
 
 #### Step 1: Create IAM Role in Customer account
 Create a cross-account role for the Lambda in the Customer account. Use the CloudFormation template `cnf-customer-iam-role-manual.yml` (need a better name??)
@@ -34,39 +34,37 @@ aws cloudformation deploy \
 ```
 
 #### Step 2: Create EventBridge Rule in cr-opsdev account
-1. Copy `event_rule_mock_customer.tf` to a new file in the repo root. Use naming convention:
+1. Copy `event_rule_mock_customer_dev.tf` to a new file in the repo root. Use naming convention:
 ```
 event_rule_<CUSTOMER_NAME>_<ENV_NAME>.tf
 ```
 
 2. Customize the module input block:
 ```
-module "<CUSTOMER_NAME> {
-  source = "./module-eventbridge"                               # <-- DONOT CHANGE THIS
-  lambda_arn           = aws_lambda_function.audit_lambda.arn   # <-- DONOT CHANGE THIS
-  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn   # <-- DONOT CHANGE THIS
+module "CUSTOMER_NAME" {
+  source               = "./module-eventbridge"               # <-- DO NOT CHANGE THIS
+  lambda_arn           = aws_lambda_function.audit_lambda.arn # <-- DO NOT CHANGE THIS
+  eventbridge_role_arn = aws_iam_role.iam_for_eventbridge.arn # <-- DO NOT CHANGE THIS
 
-  event_rule_name      = "event_rule_<CUSTOMER_NAME>_<ENV_NAME>"
-  cron                 = "cron(0 12 * * ? *)"                   # <-- Alter as required by the customer
-  input_json = jsonencode({
-    "account_id"       : "<CUSTOMER_ACCOUNT_ID>",
-    "regions"          : ["eu-west-1", "ap-northeast-3"],
-    "modules_in_scope" : ["ebs_gp2", "ebs_unencrypted"],
-    "exclusions" : {
-      "ebs_gp2_volume_ids" : ["vol-xxxxx", "vol-yyyyy"],
-      "ebs_unencrypted_volume_ids" : ["vol-xxxxx", "vol-yyyyy"],
-      "security_group_rule_ids" : ["sgr-xxxxx", "sgr-yyyyy"]
-    }
-  })
+  event_rule_name = "event_rule_CUATOMER_NAME_ENV"
+  cron            = "cron(00 12 * * ? *)"           # <-- Replace cron schedule
+  account_id      = "xxxxxxxxxx"                    # <-- Replace with Customer AWS account ID
+  regions         = ["eu-west-1", "ap-northeast-3"] # <-- Specify the regions to analyze
+
+  # Enable the checks customers want to run. Set to true to enable the check, false to disable it
+  enable_gp2_check        = false
+  enable_encryption_check = true
+  enable_sg_check         = false
+
+  # Optional, exclude specific volumes or security group rules from the checks
+  exclude_gp2_volumes         = ["vol-xxxxx", "vol-xxxxx"] 
+  exclude_unencrypted_volumes = ["vol-yyyyy", "vol-yyyyy"] 
+  exclude_sg_rules            = ["sgr-zzzzz", "sgr-zzzzz"] 
 }
 ```
-3. The valid values in `modules_in_scope` are `ebs_gp2`, `ebs_unencrypted`, `security_groups`. 
-If the customer has opted for encryption audit alone, use `["ebs_unencrypted"]`
-If the customer has opted for all audits, use `["ebs_gp2", "ebs_unencrypted", "security_groups"]`
+3. For initial setup, leave `exclusions` list empty. These can be updated later based on customer feedback.
 
-4. For initial setup, leave `exclusions` list empty. These can be updated later based on customer feedback.
-
-5. Deploy the new rule to the cr-opsdev account
+4. Deploy the new rule to the cr-opsdev account
   ```
   terraform init
   terraform apply
