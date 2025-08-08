@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EBS Compliance Audit Lambda - GP2 and Unencrypted Volume Checks
+
+Parameters:
+  EmailFrom:
+    Type: String
+    Description: Verified SES email (sender)
+    Default: shoaibmm7@gmail.com
+
+  EmailTo:
+    Type: String
+    Description: JSON list of recipient emails
+    Default: '["shoaibmm7@gmail.com"]'
+  
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 12 * * ? *)
+    Description: Cron expression for Lambda trigger
+  
+  StackName:
+    Type: String
+    Description: Name of the CloudFormation stack (used for tagging)
+
+Resources:
+
+  ComplianceAuditRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-lambda-role"
+      Description: "IAM role for EBS Compliance Audit Lambda"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-lambda-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeVolumes
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ses:SendRawEmail
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  ComplianceAuditLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref StackName
+      Description: "EBS Compliance Audit Lambda for GP2 and Unencrypted Volume Checks"
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      Role: !GetAtt ComplianceAuditRole.Arn
+      Timeout: 900
+      MemorySize: 256
+      Environment:
+        Variables:
+          EMAIL_FROM: !Ref EmailFrom
+          EMAIL_TO: !Ref EmailTo
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import csv
+          import json
+          from datetime import datetime
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.text import MIMEText
+          from email.mime.application import MIMEApplication
+
+          EMAIL_FROM = os.environ.get("EMAIL_FROM")
+          EMAIL_TO = json.loads(os.environ.get("EMAIL_TO", "[]"))
+
+          def send_email(subject, body_text, attachment_path):
+              ses = boto3.client("ses")
+              recipients = EMAIL_TO if isinstance(EMAIL_TO, list) else [EMAIL_TO]
+              msg = MIMEMultipart()
+              msg['Subject'] = subject
+              msg['From'] = EMAIL_FROM
+              msg['To'] = ', '.join(recipients)
+              msg.attach(MIMEText(body_text, 'plain'))
+              with open(attachment_path, 'rb') as file:
+                  part = MIMEApplication(file.read())
+                  part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
+                  msg.attach(part)
+              try:
+                  print("Sending email...")
+                  response = ses.send_raw_email(
+                      Source=EMAIL_FROM,
+                      Destinations=recipients,
+                      RawMessage={'Data': msg.as_string()}
+                  )
+                  print("Email sent! Message ID:", response['MessageId'])
+              except Exception as e:
+                  print("Failed to send email:", e)
+
+          def write_csv(report):
+              if not report or not report.get("csv_data"):
+                  print("No data to email.")
+                  return
+              data = report["csv_data"]
+              filename = report["filename"]
+              csv_path = f"/tmp/{filename}"
+              with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+                  writer = csv.DictWriter(csvfile, fieldnames=data[0].keys())
+                  writer.writeheader()
+                  writer.writerows(data)
+              send_email(report["subject"], report["body_text"], csv_path)
+
+          def analyze_ebs_unencrypted(account_id, regions, exclusions):
+              unencrypted_volumes = []
+              excluded_volumes_count = 0
+              print("EBS: Analyzing Unecrypted volumes...")
+              for region in regions:
+                  ebs = boto3.client("ec2", region_name=region)
+                  volumes = ebs.describe_volumes()['Volumes']
+                  for vol in volumes:
+                      if vol['VolumeId'] in exclusions.get("ebs_unencrypted_volume_ids", []):
+                          excluded_volumes_count += 1
+                          continue
+                      if not vol['Encrypted']:
+                          vol_attachments = vol['Attachments'][0]['InstanceId'] if vol['Attachments'] else ''
+                          unencrypted_volumes.append({
+                              "AccountId": account_id,
+                              "Region": region,
+                              "AvailabilityZone": vol['AvailabilityZone'],
+                              "VolumeId": vol['VolumeId'],
+                              "Type": vol['VolumeType'],
+                              "Encrypted": vol['Encrypted'],
+                              "Size": vol['Size'],
+                              "IOPS": vol['Iops'],
+                              "AttachedInstances": vol_attachments
+                          })
+              print("EBS: Unencrypted volumes analysis complete")
+              print(f"EBS: Found {len(unencrypted_volumes)} unencrypted volumes across {len(regions)} regions.")
+              print(f"EBS: Excluded {excluded_volumes_count} volumes from the report based on exclusion list.")
+
+              print(unencrypted_volumes)
+              print(f"""EBS Encryption Summary:
+                  - Total unencrypted volumes found: {len(unencrypted_volumes)}
+                  - Excluded volumes from report: {excluded_volumes_count}
+                  - Regions scanned: {len(regions)}
+              """)
+
+              if not unencrypted_volumes:
+                  print("EBS: No unencrypted volumes found.")
+                  return
+              return {
+                      "csv_data": unencrypted_volumes,
+                      "filename": f"ebs-unencrypted-volumes-{account_id}.csv",
+                      "subject": f"Unencrypted EBS Volumes Detected in AWS Account - {account_id}",
+                      "body_text": f"""
+                      Hi there,
+
+                      As part of our continuous compliance checks, we have identified unencrypted EBS volumes in the AWS account {account_id}.
+
+                      EBS volumes without encryption exposes workloads to potential data breaches and does not align with security best practices.
+
+                      To address this:
+                      
+                          1. Review the attached report to see affected volumes by region and usage.
+                          2. Consider enabling encryption on volumes.
+                      
+
+                      Taking action ensures data confidentiality, strengthens cloud security posture, and aligns with compliance obligations.
+
+                      Regards and thanks,
+                      Atos Managed Services
+                    """
+                  }
+
+          def analyze_ebs_gp2(account_id, regions, exclusions):
+              gp2_volumes = []
+              excluded_volumes_count = 0
+              print("EBS: Analyzing GP2 volumes...")
+              for region in regions:
+                  ebs = boto3.client("ec2", region_name=region)
+                  volumes = ebs.describe_volumes()['Volumes']
+                  for vol in volumes:
+                      if vol['VolumeId'] in exclusions.get("ebs_gp2_volume_ids", []):
+                          excluded_volumes_count += 1
+                          continue
+                      if vol['VolumeType'] == 'gp2':
+                          if vol['State'] == 'in-use':
+                              vol_attachments = vol['Attachments'][0]['InstanceId']
+                          gp2_volumes.append({
+                              "AccountId": account_id,
+                              "Region": region,
+                              "AvailabilityZone": vol['AvailabilityZone'],
+                              "VolumeId": vol['VolumeId'],
+                              "Type": vol['VolumeType'],
+                              "Encrypted": vol['Encrypted'],
+                              "Size": vol['Size'],
+                              "IOPS": vol['Iops'],
+                              "AttachedInstances": vol_attachments
+                          })
+              print("EBS: GP2 volumes analysis complete")
+              print(f"EBS: Found {len(gp2_volumes)} gp2 volumes across {len(regions)} regions.")
+              print(f"EBS: Excluded {excluded_volumes_count} volumes from the report based on exclusion list.")
+              print(f"""EBS GP2 Summary:
+                  - Total gp2 volumes found: {len(gp2_volumes)}
+                  - Excluded volumes from report: {excluded_volumes_count}
+                  - Regions scanned: {len(regions)}
+              """)
+
+              if not gp2_volumes:
+                  print("EBS: No GP2 volumes found.")
+                  return
+              return {
+                      "csv_data": gp2_volumes,
+                      "filename": f"ebs-gp2-volumes-{account_id}.csv",
+                      "subject": f"GP2 Volumes Detected in AWS Account - {account_id}",
+                      "body_text": f"""
+                      Hi there,
+
+                      Our latest audit has found that the AWS account {account_id} is using gp2 EBS volume storage types.
+
+                      AWS recommends migrating to gp3 volumes to benefit from:
+                      
+                      1. Lower cost per GB and per IOPS
+                      2. Decoupled IOPS and throughput performance
+                      3. Greater performance flexibility for modern workloads
+                      
+
+                      Please refer to the attached report for details on affected volumes. We recommend planning a migration to gp3 to optimize performance and cost-efficiency.
+                      
+                      Regards and thanks,
+                      Atos Managed Services
+                      """
+                  }
+
+          def lambda_handler(event, context):
+              account_id = boto3.client("sts").get_caller_identity()["Account"]
+              enabled_checks = event.get("enabled_checks", [])
+              regions = event.get("regions", [])
+              exclusions = event.get("exclusions", {})
+              print(f"Running for account: {account_id}, Compliance checks in Scope: {enabled_checks}, regions: {regions}")
+              if "ebs_unencrypted" in enabled_checks:
+                  ebs_unecrypted_volumes = analyze_ebs_unencrypted(account_id, regions, exclusions)
+                  write_csv(ebs_unecrypted_volumes)
+              if "ebs_gp2" in enabled_checks:
+                  ebs_gp2_volumes = analyze_ebs_gp2(account_id, regions, exclusions)
+                  write_csv(ebs_gp2_volumes)
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Compliance module execution complete.')
+              }
+
+  AuditEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${AWS::StackName}-event-trigger"
+      Description: "Trigger Lambda function for EBS compliance checks"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ComplianceAuditLambda.Arn
+          Id: LambdaTarget
+          Input: !Sub |
+            {
+              "enabled_checks": ["ebs_unencrypted", "ebs_gp2"],
+              "regions": ["eu-west-1", "ap-northeast-3"],
+              "exclusions": {
+                "ebs_unencrypted_volume_ids": ["vol-0123456789abcdef0"],
+                "ebs_gp2_volume_ids": ["vol-0bc524b9c25ee4e48"]
+              }
+            }
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ComplianceAuditLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AuditEventRule.Arn
